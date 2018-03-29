@@ -1,12 +1,25 @@
-var hexRotate = 30.0;
+var hexRotate = 5.0;
+var tubespeed = 0;
+var dir = 0;
+var press = 0;
 main();
 
-//
-// Start here
-//
+window.onkeydown = function(e) {
+  var code = e.keyCode ? e.keyCode : e.which;
+  if(code == 37) {//left
+    dir -= -1;  
+    press = 1
+  } else if(code == 39) {//right
+    dir += 1;
+    press = 1
+  } else {
+    press = 0;
+  } 
+}
+
 function main() {
   const canvas = document.querySelector('#glcanvas');
-  const gl = canvas.getContext('webgl');
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
 
   // If we don't have a GL context, give up now
 
@@ -36,18 +49,14 @@ function main() {
 
   const fsSource = `
     varying lowp vec4 vColor;
+
     void main() {
       gl_FragColor = vColor;
     }
   `;
 
-  // Initialize a shader program; this is where all the lighting
-  // for the vertices and so forth is established.
   const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
 
-  // Collect all the info needed to use the shader program.
-  // Look up which attribute our shader program is using
-  // for aVertexPosition and look up uniform locations.
   const programInfo = {
     program: shaderProgram,
     attribLocations: {
@@ -60,8 +69,6 @@ function main() {
     },
   };
 
-  // Here's where we call the routine that builds all the
-  // objects we'll be drawing.
   const buffers = initBuffers(gl);
 
   var then = 0;
@@ -69,198 +76,212 @@ function main() {
     now *= 0.001;
     const deltaTime = now - then;
     then = now;
+
     drawScene(gl, programInfo, buffers, deltaTime);
+    
     requestAnimationFrame(render);
   }
 
   requestAnimationFrame(render);
 
-  // Draw the scene
 }
 
-//
-// initBuffers
-//
-// Initialize the buffers we'll need. For this demo, we just
-// have one object -- a simple two-dimensional square.
-//
+
 function initBuffers(gl) {
-
-  // Create a buffer for the square's positions.
-
   const positionBuffer = gl.createBuffer();
-  const indexBuffer = gl.createBuffer();
-
-  // Select the positionBuffer as the one to apply buffer
-  // operations to from here out.
-
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-
-  // Now create an array of positions for the square.
-
   positions = [];
-  var theta = 60;
+  var theta = 45;
   var x = 0;
-  var y = 1;
+  var y = 2;
   var k = 0;
-  positions[k++] = 0;
-  positions[k++] = 0;
-  positions[k++] = 0;
-  positions[k++] = x;
-  positions[k++] = y;
-  positions[k++] = 0;
-  for(i = 0; i < 5; i++) {
+  for(var i = 0; i < 8; i++) {
+    positions[k++] = x;
+    positions[k++] = y;
+    positions[k++] = 0;
+    positions[k++] = x;
+    positions[k++] = y;
+    positions[k++] = -4; 
     positions[k++] = x * Math.cos(theta * Math.PI/180) - y * Math.sin(theta * Math.PI/180);
     positions[k++] = y * Math.cos(theta * Math.PI/180) + x * Math.sin(theta * Math.PI/180);
     positions[k++] = 0;
-    var temp1 = x;
-    var temp2 = y;
-    x = temp1 * Math.cos(theta * Math.PI/180) - temp2 * Math.sin(theta * Math.PI/180);
-    y = temp2 * Math.cos(theta * Math.PI/180) + temp1 * Math.sin(theta * Math.PI/180);
-  }
-  x = 0;
-  y = 1;
-  positions[k++] = 0;
-  positions[k++] = 0;
-  positions[k++] = -1;
-  positions[k++] = x;
-  positions[k++] = y;
-  positions[k++] = -1;
-  for(i = 0; i < 5; i++) {
     positions[k++] = x * Math.cos(theta * Math.PI/180) - y * Math.sin(theta * Math.PI/180);
     positions[k++] = y * Math.cos(theta * Math.PI/180) + x * Math.sin(theta * Math.PI/180);
-    positions[k++] = -1;
+    positions[k++] = -4;
     var temp1 = x;
     var temp2 = y;
     x = temp1 * Math.cos(theta * Math.PI/180) - temp2 * Math.sin(theta * Math.PI/180);
     y = temp2 * Math.cos(theta * Math.PI/180) + temp1 * Math.sin(theta * Math.PI/180);
   }
 
-  const indices = [
-    0, 1, 2,
-    0, 2, 3,
-    0, 3, 4,
-    0, 4, 5,
-    0, 5, 6,
-    0, 6, 1,
-    7, 8, 9,
-    7, 9, 10,
-    7, 10, 11,
-    7, 11, 12,
-    7, 12, 13,
-    7, 13, 8,
-    1, 2, 8,
-    8, 9, 2,
-    2, 3, 9,
-    9, 10, 3,
-    3, 4, 10,
-    10, 11, 4,
-    4, 5, 11,
-    11, 12, 5,
-    5, 6, 12,
-    12, 13, 6,
-    6, 1, 13,
-    13, 8, 1, 
-  ];
-
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);  
   const faceColors = [
-    [1.0,  1.0,  1.0,  1.0],
-    [1.0,  0.0,  0.0,  1.0],
-    [0.0,  1.0,  0.0,  1.0],
-    [1.0,  1.0,  0.0,  0.0],
-    [0.0,  0.0,  1.0,  0.0],
-    [0.0,  1.0,  1.0,  0.0], 
-    [0.0,  1.0,  1.0,  0.0],
-    [0.0,  1.0,  1.0,  0.0],
-    [0.0,  1.0,  1.0,  0.0],
-    [0.0,  1.0,  1.0,  0.0],
-    [0.0,  1.0,  1.0,  0.0],
-    [0.0,  1.0,  1.0,  0.0],
-    [0.0,  1.0,  1.0,  0.0],
-    [0.0,  1.0,  1.0,  0.0],
-  ];
-
+    [1, 0, 0, 1],
+    [0, 1, 0, 1],
+    [0, 0, 1, 1],
+    [1, 1, 0, 1],
+    [1, 0, 1, 1],
+    [0, 1, 1, 1],
+    [0, 0.5, 0, 1],
+    [1, 0.5, 0, 1],
+  ];  
   var colors = [];
   for(var j = 0; j < faceColors.length; ++j) {
-      const c = faceColors[j];
-      colors = colors.concat(c);
+    const c = faceColors[j];
+
+    colors = colors.concat(c, c, c, c);
   }
 
   const colorBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float64Array(colors), gl.STATIC_DRAW);
-  // Now pass the list of positions into WebGL to build the
-  // shape. We do this by creating a Float32Array from the
-  // JavaScript array, then use it to fill the current buffer.
-
-  gl.bufferData(gl.ARRAY_BUFFER,
-                new Float32Array(positions),
-                gl.STATIC_DRAW);
-
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+  
+  const indexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+  const indices = [
+    0, 1, 2,
+    1, 2, 3,
+    4, 5, 6,
+    5, 6, 7,
+    8, 9, 10,
+    9, 10, 11,
+    12, 13, 14,
+    13, 14, 15,
+    16, 17, 18,
+    17, 18, 19,
+    20, 21, 22,
+    21, 22, 23,
+    24, 25, 26,
+    25, 26, 27,
+    28, 29, 30,
+    29, 30, 31,
+  ];
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+  boxPosition = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, boxPosition);
+  box = [
+    0.035, 0.035, 0,
+    -0.035, 0.035, 0,
+    0.035, -0.035, 0,
+    -0.035, -0.035, 0,
+  ];
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(box), gl.STATIC_DRAW);
+
   return {
     position: positionBuffer,
     indices: indexBuffer,
     color: colorBuffer,
+    boxes: boxPosition,
   };
 }
 
-//
-// Draw the scene.
-//
 function drawScene(gl, programInfo, buffers, deltaTime) {
   gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
   gl.clearDepth(1.0);                 // Clear everything
   gl.enable(gl.DEPTH_TEST);           // Enable depth testing
   gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
 
-  // Clear the canvas before we start drawing on it.
-
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  // Create a perspective matrix, a special matrix that is
-  // used to simulate the distortion of perspective in a camera.
-  // Our field of view is 45 degrees, with a width/height
-  // ratio that matches the display size of the canvas
-  // and we only want to see objects between 0.1 units
-  // and 100 units away from the camera.
-
-  const fieldOfView = 30 * Math.PI / 180;   // in radians
+  const fieldOfView = 45 * Math.PI / 180;   // in radians
   const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-  const zNear = 0;
-  const zFar = 5.0;
+  const zNear = 1;
+  const zFar = 100.0;
   const projectionMatrix = mat4.create();
-
-  // note: glmatrix.js always has the first argument
-  // as the destination to receive the result.
   mat4.perspective(projectionMatrix,
                    fieldOfView,
                    aspect,
                    zNear,
                    zFar);
-  // Set the drawing position to the "identity" point, which is
-  // the center of the scene.
+ 
+  for(var i = 0; i < 60; i++) {
+    const modelViewMatrix = mat4.create();
+
+    if(tubespeed > 30) {
+      tubespeed = 0;
+    }  
+    mat4.translate(modelViewMatrix,     // destination matrix
+                   modelViewMatrix,     // matrix to translate
+                   [0, 1, -1.8 - 4 * i + tubespeed]);  // amount to translate
+
+    // mat4.rotate(modelViewMatrix, modelViewMatrix, hexRotate * 0.05, [0, 1, 0]);
+    // mat4.rotate(modelViewMatrix, modelViewMatrix, hexRotate * 0.09, [1, 0, 0]);
+    var factor;
+    if(i % 2 == 0) {
+      factor = 2 * i;
+    } else {
+      factor = 3 * i;
+    }
+    mat4.rotate(modelViewMatrix, modelViewMatrix, 20 * Math.PI/180, [0, 0, 1]);
+    mat4.rotate(modelViewMatrix, modelViewMatrix, 45 * Math.PI/180 * factor, [0, 0, 1]);
+    if(press) {
+      mat4.rotate(modelViewMatrix, modelViewMatrix, 22.5 * Math.PI/180 * dir, [0, 0, 1]);
+    }
+    {
+      const numComponents = 3;
+      const type = gl.FLOAT;
+      const normalize = false;
+      const stride = 0;
+      const offset = 0;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+      gl.vertexAttribPointer(
+          programInfo.attribLocations.vertexPosition,
+          numComponents,
+          type,
+          normalize,
+          stride,
+          offset);
+      gl.enableVertexAttribArray(
+          programInfo.attribLocations.vertexPosition);
+    }
+    {
+      const numComponents = 4;
+      const type = gl.FLOAT;
+      const normalize = false;
+      const stride = 0;
+      const offset = 0;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+      gl.vertexAttribPointer(
+        programInfo.attribLocations.vertexColor,
+        numComponents,
+        type, 
+        normalize,
+        stride,
+        offset);
+      gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor)
+    }
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);  
+    gl.useProgram(programInfo.program);
+    gl.uniformMatrix4fv(
+        programInfo.uniformLocations.projectionMatrix,
+        false,
+        projectionMatrix);
+    gl.uniformMatrix4fv(
+        programInfo.uniformLocations.modelViewMatrix,
+        false,
+        modelViewMatrix);
+
+    {
+      const offset = 0;
+      const vertexCount = 48;
+      const type = gl.UNSIGNED_SHORT;
+      gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
+    }
+
+    tubespeed += deltaTime / 10;
+  }
   const modelViewMatrix = mat4.create();
-
-  // Now move the drawing position a bit to where we want to
-  // start drawing the square.
-
-  mat4.translate(modelViewMatrix,     // destination matrix
-                 modelViewMatrix,     // matrix to translate
-                 [-0.0, 0.0, -6.0]);  // amount to translate
-
-  mat4.rotate(modelViewMatrix, modelViewMatrix, hexRotate, [0, 0, 1]);
-  mat4.rotate(modelViewMatrix, modelViewMatrix, hexRotate * .7, [1, 0, 0]);
-  // Tell WebGL how to pull out the positions from the position
-  // buffer into the vertexPosition attribute.
+  mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -1]);
   {
-    const numComponents = 3;
-    const type = gl.FLOAT;
-    const normalize = false;
-    const stride = 0;
-    const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+    const numComponents = 3;  // pull out 2 values per iteration
+    const type = gl.FLOAT;    // the data in the buffer is 32bit floats
+    const normalize = false;  // don't normalize
+    const stride = 0;         // how many bytes to get from one set of values to the next
+                              // 0 = use type and numComponents above
+    const offset = 0;         // how many bytes inside the buffer to start from
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.boxes);
     gl.vertexAttribPointer(
         programInfo.attribLocations.vertexPosition,
         numComponents,
@@ -271,90 +292,46 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     gl.enableVertexAttribArray(
         programInfo.attribLocations.vertexPosition);
   }
-  {
-    const numComponents = 4;
-    const type = gl.FLOAT;
-    const normalize = false;
-    const stride = 0;
-    const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
-    gl.vertexAttribPointer(
-      programInfo.attribLocations.vertexColor,
-      numComponents,
-      type, 
-      normalize,
-      stride,
-      offset);
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor)
-}
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);  
-
-  // Tell WebGL to use our program when drawing
-
   gl.useProgram(programInfo.program);
 
-  // Set the shader uniforms
+  gl.uniformMatrix4fv(
+    programInfo.uniformLocations.modelViewMatrix,
+    false,
+    projectionMatrix);
 
   gl.uniformMatrix4fv(
-      programInfo.uniformLocations.projectionMatrix,
-      false,
-      projectionMatrix);
-  gl.uniformMatrix4fv(
-      programInfo.uniformLocations.modelViewMatrix,
-      false,
-      modelViewMatrix);
-
+    programInfo.uniformLocations.modelViewMatrix,
+    false,
+    modelViewMatrix);
   {
     const offset = 0;
-    const vertexCount = 2 * 36;
-    const type = gl.UNSIGNED_SHORT;
-    gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
+    const vertexCount = 4;
+    gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
   }
-
-  // hexRotate += deltaTime;
 }
 
-//
-// Initialize a shader program, so WebGL knows how to draw our data
-//
 function initShaderProgram(gl, vsSource, fsSource) {
   const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
   const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-
-  // Create the shader program
 
   const shaderProgram = gl.createProgram();
   gl.attachShader(shaderProgram, vertexShader);
   gl.attachShader(shaderProgram, fragmentShader);
   gl.linkProgram(shaderProgram);
 
-  // If creating the shader program failed, alert
-
   if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
     alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
     return null;
   }
-
   return shaderProgram;
 }
 
-//
-// creates a shader of the given type, uploads the source and
-// compiles it.
-//
 function loadShader(gl, type, source) {
   const shader = gl.createShader(type);
 
-  // Send the source to the shader object
-
   gl.shaderSource(shader, source);
 
-  // Compile the shader program
-
   gl.compileShader(shader);
-
-  // See if it compiled successfully
 
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     alert('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
