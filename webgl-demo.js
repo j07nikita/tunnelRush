@@ -2,12 +2,13 @@ var hexRotate = 5.0;
 var tubespeed = 0;
 var dir = 0;
 var press = 0;
+var obstacle = 0, deltaTime = 0, timer = 0, n = 0;
 main();
 
 window.onkeydown = function(e) {
   var code = e.keyCode ? e.keyCode : e.which;
   if(code == 37) {//left
-    dir -= -1;  
+    dir -= 1;  
     press = 1
   } else if(code == 39) {//right
     dir += 1;
@@ -72,11 +73,15 @@ function main() {
   const buffers = initBuffers(gl);
 
   var then = 0;
+
   function render(now) {
     now *= 0.001;
-    const deltaTime = now - then;
+    deltaTime = now - then;
     then = now;
-
+    timer += 1;
+    if(timer > 4000) {
+      timer = 0;
+    }
     drawScene(gl, programInfo, buffers, deltaTime);
     
     requestAnimationFrame(render);
@@ -102,21 +107,21 @@ function initBuffers(gl) {
     positions[k++] = x;
     positions[k++] = y;
     positions[k++] = -4; 
-    positions[k++] = x * Math.cos(theta * Math.PI/180) - y * Math.sin(theta * Math.PI/180);
-    positions[k++] = y * Math.cos(theta * Math.PI/180) + x * Math.sin(theta * Math.PI/180);
+    positions[k++] = x * Math.cos(theta * Math.PI/180) + y * Math.sin(theta * Math.PI/180);
+    positions[k++] = y * Math.cos(theta * Math.PI/180) - x * Math.sin(theta * Math.PI/180);
     positions[k++] = 0;
-    positions[k++] = x * Math.cos(theta * Math.PI/180) - y * Math.sin(theta * Math.PI/180);
-    positions[k++] = y * Math.cos(theta * Math.PI/180) + x * Math.sin(theta * Math.PI/180);
+    positions[k++] = x * Math.cos(theta * Math.PI/180) + y * Math.sin(theta * Math.PI/180);
+    positions[k++] = y * Math.cos(theta * Math.PI/180) - x * Math.sin(theta * Math.PI/180);
     positions[k++] = -4;
     var temp1 = x;
     var temp2 = y;
-    x = temp1 * Math.cos(theta * Math.PI/180) - temp2 * Math.sin(theta * Math.PI/180);
-    y = temp2 * Math.cos(theta * Math.PI/180) + temp1 * Math.sin(theta * Math.PI/180);
+    x = temp1 * Math.cos(theta * Math.PI/180) + temp2 * Math.sin(theta * Math.PI/180);
+    y = temp2 * Math.cos(theta * Math.PI/180) - temp1 * Math.sin(theta * Math.PI/180);
   }
 
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);  
   const faceColors = [
-    [1, 0, 0, 1],
+    [0.5, 0.5, 0.5, 1],
     [0, 1, 0, 1],
     [0, 0, 1, 1],
     [1, 1, 0, 1],
@@ -124,18 +129,34 @@ function initBuffers(gl) {
     [0, 1, 1, 1],
     [0, 0.5, 0, 1],
     [1, 0.5, 0, 1],
-  ];  
+  ]; 
+  const faceColors2 = [
+    [0, 0, 0, 1],
+    [1, 1, 1, 1],
+    [0, 0, 0, 1],
+    [1, 1, 1, 1],
+    [0, 0, 0, 1],
+    [1, 1, 1, 1],
+    [0, 0, 0, 1],
+    [1, 1, 1, 1],
+  ] 
   var colors = [];
+  var colors2 = [];
   for(var j = 0; j < faceColors.length; ++j) {
     const c = faceColors[j];
-
+    const p = faceColors2[j];
     colors = colors.concat(c, c, c, c);
+    colors2 = colors2.concat(p, p, p, p);
   }
 
   const colorBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-  
+
+  const colorBuffer2 = gl.createBuffer()
+  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer2);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors2), gl.STATIC_DRAW);
+
   const indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
   const indices = [
@@ -168,13 +189,37 @@ function initBuffers(gl) {
   ];
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(box), gl.STATIC_DRAW);
 
+  trianglePosition = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, trianglePosition);
+  triangle = [
+    0, 0, 0,
+    0, -2, 0,
+    1.414213562373095, -1.4142135623730951, 0,
+  ];
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangle), gl.STATIC_DRAW);
+
+  const Tcolors = [
+    1.0, 0.0, 0.0, 1.0,
+    1.0, 0.0, 0.0, 1.0,
+    1.0, 0.0, 0.0, 1.0,
+  ];
+
+  const TcolorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, TcolorBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(Tcolors), gl.STATIC_DRAW);
+
   return {
     position: positionBuffer,
     indices: indexBuffer,
     color: colorBuffer,
     boxes: boxPosition,
+    triangles: trianglePosition,
+    tcolor: TcolorBuffer,
+    color2: colorBuffer2,
   };
 }
+
+
 
 function drawScene(gl, programInfo, buffers, deltaTime) {
   gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
@@ -184,130 +229,128 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  const fieldOfView = 45 * Math.PI / 180;   // in radians
+  const fieldOfView = 30 * Math.PI / 180;   // in radians
   const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
   const zNear = 1;
-  const zFar = 100.0;
+  const zFar = 80.0;
   const projectionMatrix = mat4.create();
-  mat4.perspective(projectionMatrix,
-                   fieldOfView,
-                   aspect,
-                   zNear,
-                   zFar);
+  mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
  
-  for(var i = 0; i < 60; i++) {
+  //                    tunnel                                  //
+  for(var i = 0; i < 100; i++) {
     const modelViewMatrix = mat4.create();
-
-    if(tubespeed > 30) {
+    if(tubespeed > 110) {
       tubespeed = 0;
-    }  
-    mat4.translate(modelViewMatrix,     // destination matrix
-                   modelViewMatrix,     // matrix to translate
-                   [0, 1, -1.8 - 4 * i + tubespeed]);  // amount to translate
+    } 
 
-    // mat4.rotate(modelViewMatrix, modelViewMatrix, hexRotate * 0.05, [0, 1, 0]);
-    // mat4.rotate(modelViewMatrix, modelViewMatrix, hexRotate * 0.09, [1, 0, 0]);
+    mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -1.8 - 4 * i + tubespeed]);
+    
     var factor;
     if(i % 2 == 0) {
       factor = 2 * i;
     } else {
       factor = 3 * i;
     }
-    mat4.rotate(modelViewMatrix, modelViewMatrix, 20 * Math.PI/180, [0, 0, 1]);
+
+    mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180, [0, 0, 1]);
     mat4.rotate(modelViewMatrix, modelViewMatrix, 45 * Math.PI/180 * factor, [0, 0, 1]);
     if(press) {
-      mat4.rotate(modelViewMatrix, modelViewMatrix, 22.5 * Math.PI/180 * dir, [0, 0, 1]);
-    }
-    {
-      const numComponents = 3;
-      const type = gl.FLOAT;
-      const normalize = false;
-      const stride = 0;
-      const offset = 0;
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-      gl.vertexAttribPointer(
-          programInfo.attribLocations.vertexPosition,
-          numComponents,
-          type,
-          normalize,
-          stride,
-          offset);
-      gl.enableVertexAttribArray(
-          programInfo.attribLocations.vertexPosition);
-    }
-    {
-      const numComponents = 4;
-      const type = gl.FLOAT;
-      const normalize = false;
-      const stride = 0;
-      const offset = 0;
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
-      gl.vertexAttribPointer(
-        programInfo.attribLocations.vertexColor,
-        numComponents,
-        type, 
-        normalize,
-        stride,
-        offset);
-      gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor)
+      mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180 * dir, [0, 0, 1]);
     }
 
+    {
+      const numComponents = 3; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+      gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, numComponents, type, normalize, stride, offset);
+      gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    }
+    if(timer > 900 && timer < 2000) {
+      {
+        const numComponents = 4; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color2);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, numComponents, type, normalize, stride, offset);
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor)
+      }      
+    } else {
+      {
+        const numComponents = 4; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, numComponents, type, normalize, stride, offset);
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor)
+      }
+    }
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);  
     gl.useProgram(programInfo.program);
-    gl.uniformMatrix4fv(
-        programInfo.uniformLocations.projectionMatrix,
-        false,
-        projectionMatrix);
-    gl.uniformMatrix4fv(
-        programInfo.uniformLocations.modelViewMatrix,
-        false,
-        modelViewMatrix);
-
+    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
+    
     {
-      const offset = 0;
-      const vertexCount = 48;
-      const type = gl.UNSIGNED_SHORT;
+      const offset = 0; const vertexCount = 48; const type = gl.UNSIGNED_SHORT;
       gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
     }
 
-    tubespeed += deltaTime / 10;
+    tubespeed += deltaTime / 5;
   }
-  const modelViewMatrix = mat4.create();
-  mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -1]);
-  {
-    const numComponents = 3;  // pull out 2 values per iteration
-    const type = gl.FLOAT;    // the data in the buffer is 32bit floats
-    const normalize = false;  // don't normalize
-    const stride = 0;         // how many bytes to get from one set of values to the next
-                              // 0 = use type and numComponents above
-    const offset = 0;         // how many bytes inside the buffer to start from
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.boxes);
-    gl.vertexAttribPointer(
-        programInfo.attribLocations.vertexPosition,
-        numComponents,
-        type,
-        normalize,
-        stride,
-        offset);
-    gl.enableVertexAttribArray(
-        programInfo.attribLocations.vertexPosition);
-  }
-  gl.useProgram(programInfo.program);
 
-  gl.uniformMatrix4fv(
-    programInfo.uniformLocations.modelViewMatrix,
-    false,
-    projectionMatrix);
+  //               temp box                             //
+  for(var i = 0 ; i < 1; i++) {
+    const modelViewMatrix = mat4.create();
+    mat4.translate(modelViewMatrix, modelViewMatrix, [0, 1, -1]);
+    {
+      const numComponents = 3; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.boxes);
+      gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, numComponents, type, normalize, stride, offset);
+      gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    }
 
-  gl.uniformMatrix4fv(
-    programInfo.uniformLocations.modelViewMatrix,
-    false,
-    modelViewMatrix);
-  {
-    const offset = 0;
-    const vertexCount = 4;
-    gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+    gl.useProgram(programInfo.program);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, projectionMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
+    
+    {
+      const offset = 0; const vertexCount = 4;
+      gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+    }
   }
+
+  //                 obstacles                            //
+  for(var i = 0; i < 2; i++) {
+    if(tubespeed >= 109) {
+      n = Math.floor(Math.random() * 10);
+      count = 0;
+    }
+    const modelViewMatrix = mat4.create();
+    mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -50 + tubespeed]); 
+    mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180, [0, 0, -50]);
+    mat4.rotate(modelViewMatrix, modelViewMatrix, 45 * n * Math.PI/180, [0, 0, -50]);
+    if(i == 1) {
+     mat4.rotate(modelViewMatrix, modelViewMatrix, 180 * Math.PI/180, [0, 0, -50]); 
+    }
+    if(press) {
+      mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180 * dir, [0, 0, -50]);
+    }
+    {
+      const numComponents = 3; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles);
+      gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, numComponents, type, normalize, stride, offset);
+      gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    }
+    {
+      const numComponents = 4; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.tcolor);
+      gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, numComponents, type, normalize, stride, offset);
+      gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+    }
+
+    gl.useProgram(programInfo.program);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, projectionMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
+    {
+      const offset = 0; const vertexCount = 3;
+      gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+    }
+  }
+  
 }
 
 function initShaderProgram(gl, vsSource, fsSource) {
