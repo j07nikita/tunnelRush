@@ -2,7 +2,7 @@ var hexRotate = 5.0;
 var tubespeed = 0;
 var dir = 0;
 var press = 0;
-var obstacle = 0, deltaTime = 0, timer = 0, n = 0;
+var obstacle = 0, deltaTime = 0, timer = 0, n = 0, count = 0;
 main();
 
 window.onkeydown = function(e) {
@@ -93,6 +93,8 @@ function main() {
 
 
 function initBuffers(gl) {
+
+  //tunnel
   const positionBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
   positions = [];
@@ -157,6 +159,7 @@ function initBuffers(gl) {
   gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer2);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors2), gl.STATIC_DRAW);
 
+
   const indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
   const indices = [
@@ -178,7 +181,56 @@ function initBuffers(gl) {
     29, 30, 31,
   ];
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+  
 
+  //obstacle---------------------------------------------------------------------------------
+  const opositionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, opositionBuffer);
+  opositions = [];
+  var theta = 45;
+  var x = 0, y = 2, k = 0;
+  for(var i = 0; i < 4; i++) {
+    opositions[k++] = 0;
+    opositions[k++] = 0;
+    opositions[k++] = 0;
+    opositions[k++] = x;
+    opositions[k++] = y;
+    opositions[k++] = 0;
+    opositions[k++] = x * Math.cos(theta * Math.PI/180) + y * Math.sin(theta * Math.PI/180);
+    opositions[k++] = y * Math.cos(theta * Math.PI/180) - x * Math.sin(theta * Math.PI/180);
+    opositions[k++] = 0;
+    var temp1 = x, temp2 = y;
+    x = temp1 * Math.cos(theta * Math.PI/180) + temp2 * Math.sin(theta * Math.PI/180);
+    y = temp2 * Math.cos(theta * Math.PI/180) - temp1 * Math.sin(theta * Math.PI/180);
+  }
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(opositions), gl.STATIC_DRAW);
+
+  const ofaceColors = [
+    [1, 0, 0, 1],
+    [1, 0, 0, 1],
+    [1, 0, 0, 1],
+    [1, 0, 0, 1],
+  ];
+  ocolors = [];
+  for(var j = 0; j < ofaceColors.length; j++) {
+    const c = ofaceColors[j];
+    ocolors = ocolors.concat(c, c, c);
+  }
+  const ocolorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, ocolorBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ocolors), gl.STATIC_DRAW); 
+
+  const oindexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, oindexBuffer);
+  const oindices = [
+    0, 1, 2,
+    3, 4, 5,
+    6, 7, 8,
+    9, 10, 11,
+  ];
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(oindices), gl.STATIC_DRAW);
+
+  //box ---------------------------------------------------------------------------------------------------------
   boxPosition = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, boxPosition);
   box = [
@@ -189,6 +241,18 @@ function initBuffers(gl) {
   ];
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(box), gl.STATIC_DRAW);
 
+  const scolors = [
+    1, 1, 1, 1,
+    1, 1, 1, 1,
+    1, 1, 1, 1,
+    1, 1, 1, 1,
+  ];
+  
+  const scolorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, scolorBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(scolors), gl.STATIC_DRAW);
+
+  //triangle-----------------------------------------------------------------------------------------------------
   trianglePosition = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, trianglePosition);
   triangle = [
@@ -208,17 +272,22 @@ function initBuffers(gl) {
   gl.bindBuffer(gl.ARRAY_BUFFER, TcolorBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(Tcolors), gl.STATIC_DRAW);
 
+
+
   return {
     position: positionBuffer,
     indices: indexBuffer,
     color: colorBuffer,
     boxes: boxPosition,
     triangles: trianglePosition,
+    oposition: opositionBuffer,
+    oindices: oindexBuffer,
+    ocolor: ocolorBuffer,
     tcolor: TcolorBuffer,
     color2: colorBuffer2,
+    color3: scolorBuffer,
   };
 }
-
 
 
 function drawScene(gl, programInfo, buffers, deltaTime) {
@@ -229,14 +298,14 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  const fieldOfView = 30 * Math.PI / 180;   // in radians
+  const fieldOfView = 30 * Math.PI / 180;
   const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
   const zNear = 1;
   const zFar = 80.0;
   const projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
  
-  //                    tunnel                                  //
+  //tunnel-------------------------------------------------------------------------------------------------
   for(var i = 0; i < 100; i++) {
     const modelViewMatrix = mat4.create();
     if(tubespeed > 110) {
@@ -289,22 +358,104 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
       gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
     }
 
-    tubespeed += deltaTime / 5;
+    tubespeed += deltaTime / 3;
   }
 
+  //obstacle-----------------------------------------------------------------------------------------------------------------
+  if(count >= 0.5) {
+    for(var i = 0; i < 1; i++) {
+      if(tubespeed >= 109) {
+        n = Math.floor(Math.random() * 10);
+        count = Math.random();
+      }
+      const modelViewMatrix = mat4.create();
+      mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -50 + tubespeed]); 
+      mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180, [0, 0, -50]);
+      mat4.rotate(modelViewMatrix, modelViewMatrix, 45 * n * Math.PI/180, [0, 0, -50]);
+      if(press) {
+        mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180 * dir, [0, 0, -50]);
+      }
+      {
+        const numComponents = 3; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.oposition);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, numComponents, type, normalize, stride, offset);
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+      }
+      {
+        const numComponents = 4; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.ocolor);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, numComponents, type, normalize, stride, offset);
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+      }
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.oindices);
+      gl.useProgram(programInfo.program);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
+      {
+        const vertexCount = 12; const type = gl.UNSIGNED_SHORT;
+        const offset = 0;
+        gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
+      }
+    }  
+  }  
+
+  // // triangle----------------------------------------------------------------------------------------------------------------
+  if(count <= 0.5) {
+    for(var i = 0; i < 2; i++) {
+      if(tubespeed >= 109) {
+        n = Math.floor(Math.random() * 10);
+        count = Math.random();
+      }
+      const modelViewMatrix = mat4.create();
+      mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -50 + tubespeed]); 
+      mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180, [0, 0, -50]);
+      mat4.rotate(modelViewMatrix, modelViewMatrix, 45 * n * Math.PI/180, [0, 0, -50]);
+      if(i == 1) {
+       mat4.rotate(modelViewMatrix, modelViewMatrix, 180 * Math.PI/180, [0, 0, -50]); 
+      }
+      if(press) {
+        mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180 * dir, [0, 0, -50]);
+      }
+      {
+        const numComponents = 3; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, numComponents, type, normalize, stride, offset);
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+      }
+      {
+        const numComponents = 4; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.tcolor);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, numComponents, type, normalize, stride, offset);
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+      }
+
+      gl.useProgram(programInfo.program);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
+      {
+        const offset = 0; const vertexCount = 3;
+        gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+      }
+    } 
+  }
   //               temp box                             //
   for(var i = 0 ; i < 1; i++) {
     const modelViewMatrix = mat4.create();
-    mat4.translate(modelViewMatrix, modelViewMatrix, [0, 1, -1]);
+    mat4.translate(modelViewMatrix, modelViewMatrix, [0, -0.1, -1]);
     {
       const numComponents = 3; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
       gl.bindBuffer(gl.ARRAY_BUFFER, buffers.boxes);
       gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, numComponents, type, normalize, stride, offset);
       gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
     }
-
+    {
+      const numComponents = 4; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color3);
+      gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, numComponents, type, normalize, stride, offset);
+      gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+    }    
     gl.useProgram(programInfo.program);
-    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, projectionMatrix);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
     gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
     
     {
@@ -313,44 +464,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     }
   }
 
-  //                 obstacles                            //
-  for(var i = 0; i < 2; i++) {
-    if(tubespeed >= 109) {
-      n = Math.floor(Math.random() * 10);
-      count = 0;
-    }
-    const modelViewMatrix = mat4.create();
-    mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -50 + tubespeed]); 
-    mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180, [0, 0, -50]);
-    mat4.rotate(modelViewMatrix, modelViewMatrix, 45 * n * Math.PI/180, [0, 0, -50]);
-    if(i == 1) {
-     mat4.rotate(modelViewMatrix, modelViewMatrix, 180 * Math.PI/180, [0, 0, -50]); 
-    }
-    if(press) {
-      mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180 * dir, [0, 0, -50]);
-    }
-    {
-      const numComponents = 3; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles);
-      gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, numComponents, type, normalize, stride, offset);
-      gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-    }
-    {
-      const numComponents = 4; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.tcolor);
-      gl.vertexAttribPointer(programInfo.attribLocations.vertexColor, numComponents, type, normalize, stride, offset);
-      gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
-    }
-
-    gl.useProgram(programInfo.program);
-    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, projectionMatrix);
-    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
-    {
-      const offset = 0; const vertexCount = 3;
-      gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
-    }
-  }
-  
+ 
 }
 
 function initShaderProgram(gl, vsSource, fsSource) {
@@ -384,3 +498,4 @@ function loadShader(gl, type, source) {
 
   return shader;
 }
+
