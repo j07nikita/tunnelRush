@@ -1,18 +1,29 @@
 var hexRotate = 5.0;
 var tubespeed = 0;
-var dir = 0;
-var press = 0;
-var obstacle = 0, deltaTime = 0, timer = 0, n = 0, count = 0;
+var dir = 0, len = 0, left = 0;
+var press = 0, n1 = 0;
+var obstacle = 0, deltaTime = 0, timer = 0, n = 0, count = 0, myAngle = 0, myAngle1 = 0, move = 1;
 main();
-
+// var timeElement = document.getElementById("length");
+// var timenode = document.createTextNode("");
+// timeElement.appendChild(timenode);
 window.onkeydown = function(e) {
   var code = e.keyCode ? e.keyCode : e.which;
   if(code == 37) {//left
-    dir -= 1;  
+    dir -= 1;
+    left -= 1;
+    dir = dir % 16;
+    left = left % 16;  
     press = 1
+    myAngle  -= 1;
   } else if(code == 39) {//right
     dir += 1;
+    left += 1;
+    dir = dir % 16;
+    left = left % 16;
     press = 1
+    myAngle += 1;
+    left = 0;
   } else {
     press = 0;
   } 
@@ -28,7 +39,9 @@ function main() {
     alert('Unable to initialize WebGL. Your browser or machine may not support it.');
     return;
   }
-
+  var lengthElement = document.getElementById("length");
+  var lengthNode = document.createTextNode("");
+  lengthElement.appendChild(lengthNode);
   // Vertex shader program
 
   const vsSource = `
@@ -69,12 +82,12 @@ function main() {
       modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
     },
   };
-
   const buffers = initBuffers(gl);
 
   var then = 0;
 
   function render(now) {
+
     now *= 0.001;
     deltaTime = now - then;
     then = now;
@@ -82,6 +95,8 @@ function main() {
     if(timer > 4000) {
       timer = 0;
     }
+    len = len + 1;
+    lengthNode.nodeValue = len; 
     drawScene(gl, programInfo, buffers, deltaTime);
     
     requestAnimationFrame(render);
@@ -311,7 +326,6 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
     if(tubespeed > 110) {
       tubespeed = 0;
     } 
-
     mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -1.8 - 4 * i + tubespeed]);
     
     var factor;
@@ -362,16 +376,22 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
   }
 
   //obstacle-----------------------------------------------------------------------------------------------------------------
-  if(count >= 0.5) {
+  if(count > 0.5  ) {
     for(var i = 0; i < 1; i++) {
       if(tubespeed >= 109) {
-        n = Math.floor(Math.random() * 10);
-        count = Math.random();
+        count = Math.random();        
       }
+      if((myAngle1 >= 0 && myAngle1 <= 8) || myAngle1 == 14 || myAngle1 == 15) {
+        if(tubespeed - 50 > -1 && tubespeed - 50 < 0) {
+          alert("GameOver");
+          location.reload();
+        }
+      }    
+      myAngle1 = 2 + dir;  
       const modelViewMatrix = mat4.create();
       mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -50 + tubespeed]); 
       mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180, [0, 0, -50]);
-      mat4.rotate(modelViewMatrix, modelViewMatrix, 45 * n * Math.PI/180, [0, 0, -50]);
+      mat4.rotate(modelViewMatrix, modelViewMatrix, 45 * Math.PI/180, [0, 0, -50]);
       if(press) {
         mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180 * dir, [0, 0, -50]);
       }
@@ -403,17 +423,28 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
   if(count <= 0.5) {
     for(var i = 0; i < 2; i++) {
       if(tubespeed >= 109) {
-        n = Math.floor(Math.random() * 10);
+        n = Math.floor(Math.random() * 7);
         count = Math.random();
+        if(i == 1) {
+          myAngle = 2 * n + dir;
+        }
+      }
+      if(i == 1 && (myAngle == 0 || myAngle == 1 || myAngle == 7 || myAngle == 8 || myAngle == 9 || myAngle == 15 || myAngle == -1 || myAngle == -7 || myAngle == -8 || myAngle == -9 || myAngle == -15)) {
+        if(i == 1 && tubespeed - 50 > -1 && tubespeed - 50 < 0) {
+          alert("GameOver");
+          location.reload();
+        }
       }
       const modelViewMatrix = mat4.create();
       mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -50 + tubespeed]); 
       mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180, [0, 0, -50]);
       mat4.rotate(modelViewMatrix, modelViewMatrix, 45 * n * Math.PI/180, [0, 0, -50]);
+      if(len > 1000)
+        mat4.rotate(modelViewMatrix, modelViewMatrix, 45 * move * Math.PI/180, [0, 0, -50]);
       if(i == 1) {
        mat4.rotate(modelViewMatrix, modelViewMatrix, 180 * Math.PI/180, [0, 0, -50]); 
       }
-      if(press) {
+      if(len < 1000 && press) {
         mat4.rotate(modelViewMatrix, modelViewMatrix, 45/2 * Math.PI/180 * dir, [0, 0, -50]);
       }
       {
@@ -436,12 +467,13 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
         const offset = 0; const vertexCount = 3;
         gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
       }
-    } 
+      move += deltaTime;
+    }
   }
   //               temp box                             //
   for(var i = 0 ; i < 1; i++) {
     const modelViewMatrix = mat4.create();
-    mat4.translate(modelViewMatrix, modelViewMatrix, [0, -0.1, -1]);
+    mat4.translate(modelViewMatrix, modelViewMatrix, [0, 1, -1]);
     {
       const numComponents = 3; const type = gl.FLOAT; const normalize = false; const stride = 0; const offset = 0;
       gl.bindBuffer(gl.ARRAY_BUFFER, buffers.boxes);
@@ -499,3 +531,5 @@ function loadShader(gl, type, source) {
   return shader;
 }
 
+// function detectCollision() {
+// }
